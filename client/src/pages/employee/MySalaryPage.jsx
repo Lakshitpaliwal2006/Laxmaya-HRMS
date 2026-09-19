@@ -1,0 +1,738 @@
+import React, { useState, useEffect } from "react";
+import {
+  DollarSign,
+  Calendar,
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
+  TrendingDown,
+  TrendingUp,
+  ChevronDown,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import api from "../../api/client";
+import { useToast } from "../../context/ToastContext";
+import { format } from "date-fns";
+import { HLetterLogo } from "../../components/common/HLetterLogo";
+
+const monthShorts = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+const CurrencyTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 shadow-xl text-xs">
+      <div className="font-bold text-slate-800 dark:text-white mb-1">
+        {label}
+      </div>
+      {payload.map((p) => (
+        <div
+          key={p.dataKey}
+          className="flex items-center gap-2"
+          style={{ color: p.color }}
+        >
+          <span className="font-semibold">{p.name}:</span>
+          <span className="font-mono">
+            ₹{Number(p.value || 0).toLocaleString("en-IN")}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const StatusTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+  const statusLabel = payload[0].payload.statusLabel;
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 shadow-xl text-xs">
+      <div className="font-bold text-slate-800 dark:text-white mb-1">
+        {label}
+      </div>
+      <div
+        className="font-semibold"
+        style={{ color: payload[0].payload.color }}
+      >
+        Status: {statusLabel}
+      </div>
+    </div>
+  );
+};
+
+const MySalaryPage = () => {
+  const [payslips, setPayslips] = useState([]);
+  const [selectedPayslip, setSelectedPayslip] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeMetric, setActiveMetric] = useState(null); // 'net' | 'gross' | 'deductions' | 'status' | null
+
+  const toast = useToast();
+
+  const fetchPayslips = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/salaries/my-payslips");
+      if (res.data.success) {
+        setPayslips(res.data.payslips || []);
+        if (res.data.payslips?.length > 0) {
+          setSelectedPayslip(res.data.payslips[0]);
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to load salary payslips");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayslips();
+  }, []);
+
+  const getMonthName = (m) => {
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return months[m - 1] || `Month ${m}`;
+  };
+
+  const toggleMetric = (key) => {
+    setActiveMetric((prev) => (prev === key ? null : key));
+  };
+
+  // Selected payslip ke year ka poora 12-month data, jo bhi payslips list mein already hai usi se
+  const buildYearlyData = () => {
+    const year = selectedPayslip?.year;
+    if (!year) return [];
+
+    return Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1;
+      const slip = payslips.find(
+        (p) => p.year === year && p.month === monthNum,
+      );
+
+      const statusValue = slip ? (slip.paymentStatus === "Paid" ? 1 : 0.5) : 0;
+      const statusLabel = slip ? slip.paymentStatus : "No Record";
+      const statusColor = !slip
+        ? "#cbd5e1"
+        : slip.paymentStatus === "Paid"
+          ? "#10b981"
+          : "#f59e0b";
+
+      return {
+        month: monthShorts[i],
+        netSalary: slip?.netSalary || 0,
+        grossSalary: slip?.grossSalary || 0,
+        pf: slip?.deductions?.pf || 0,
+        tax: slip?.deductions?.tax || 0,
+        other:
+          (slip?.deductions?.unpaidLeaveDeduction || 0) +
+          (slip?.deductions?.other || 0),
+        statusValue,
+        statusLabel,
+        color: statusColor,
+      };
+    });
+  };
+
+  const yearlyData = buildYearlyData();
+
+  const metricTitles = {
+    net: `Net Take-Home Trend — ${selectedPayslip?.year}`,
+    gross: `Gross Earnings Trend — ${selectedPayslip?.year}`,
+    deductions: `Deductions Breakdown (PF / Tax / Other) — ${selectedPayslip?.year}`,
+    status: `Payment Status Timeline — ${selectedPayslip?.year}`,
+  };
+
+  const renderChart = () => {
+    if (activeMetric === "net") {
+      return (
+        <ResponsiveContainer width="100%" height={280}>
+          <AreaChart
+            data={yearlyData}
+            margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+          >
+            <defs>
+              <linearGradient id="netFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#e2e8f0"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="netSalary"
+              name="Net Salary"
+              stroke="#059669"
+              strokeWidth={2.5}
+              fill="url(#netFill)"
+              dot={{ r: 3, fill: "#059669" }}
+              activeDot={{ r: 5 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+
+    if (activeMetric === "gross") {
+      return (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart
+            data={yearlyData}
+            margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#e2e8f0"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Bar
+              dataKey="grossSalary"
+              name="Gross Earnings"
+              fill="#6366f1"
+              radius={[6, 6, 0, 0]}
+              maxBarSize={34}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+
+    if (activeMetric === "deductions") {
+      return (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart
+            data={yearlyData}
+            margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#e2e8f0"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar
+              dataKey="pf"
+              name="PF"
+              stackId="ded"
+              fill="#fb7185"
+              radius={[0, 0, 0, 0]}
+              maxBarSize={34}
+            />
+            <Bar
+              dataKey="tax"
+              name="Tax/TDS"
+              stackId="ded"
+              fill="#e11d48"
+              radius={[0, 0, 0, 0]}
+              maxBarSize={34}
+            />
+            <Bar
+              dataKey="other"
+              name="Other"
+              stackId="ded"
+              fill="#9f1239"
+              radius={[6, 6, 0, 0]}
+              maxBarSize={34}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+
+    if (activeMetric === "status") {
+      return (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart
+            data={yearlyData}
+            margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#e2e8f0"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis hide domain={[0, 1]} />
+            <Tooltip content={<StatusTooltip />} />
+            <Bar
+              dataKey="statusValue"
+              name="Status"
+              radius={[6, 6, 6, 6]}
+              maxBarSize={28}
+            >
+              {yearlyData.map((entry, idx) => (
+                <Cell key={idx} fill={entry.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="space-y-6 bg-[#EAF3F9] min-h-screen p-6 font-sans">
+      {/* Title & Month Selector */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            My Salary & Payslips
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            Official monthly compensa tion breakdown, earnings structure, and
+            statutory deductions.
+          </p>
+        </div>
+
+        {payslips.length > 0 && (
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm dark:shadow-card">
+            <Calendar className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              Select Cycle:
+            </span>
+            <select
+              value={selectedPayslip?._id || ""}
+              onChange={(e) => {
+                const found = payslips.find((p) => p._id === e.target.value);
+                if (found) {
+                  setSelectedPayslip(found);
+                  setActiveMetric(null);
+                }
+              }}
+              className="bg-transparent text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
+            >
+              {payslips.map((p) => (
+                <option
+                  key={p._id}
+                  value={p._id}
+                  className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                >
+                  {getMonthName(p.month)} {p.year}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="p-16 text-center text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs">Loading official payslip records...</span>
+        </div>
+      ) : !selectedPayslip ? (
+        <div className="p-12 text-center text-slate-500 dark:text-slate-400 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <AlertCircle className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            No Payslip Records Found
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Your payroll statement will appear here once generated by HR.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Metric Cards - clickable */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <button
+              onClick={() => toggleMetric("net")}
+              className={`text-left p-5 rounded-2xl bg-white dark:bg-slate-900/80 border shadow-sm dark:shadow-card flex items-center justify-between transition-all hover:-translate-y-0.5 ${
+                activeMetric === "net"
+                  ? "border-emerald-500 ring-2 ring-emerald-500/30"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <div>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
+                  Net Take-Home Pay
+                </span>
+                <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                  ₹{selectedPayslip.netSalary?.toLocaleString("en-IN")}
+                </div>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-300 mt-0.5 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Disbursed to Bank
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${activeMetric === "net" ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <DollarSign className="w-5 h-5" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => toggleMetric("gross")}
+              className={`text-left p-5 rounded-2xl bg-white dark:bg-slate-900/80 border shadow-sm dark:shadow-card flex items-center justify-between transition-all hover:-translate-y-0.5 ${
+                activeMetric === "gross"
+                  ? "border-brand-500 ring-2 ring-brand-500/30"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                  Gross Earnings
+                </span>
+                <div className="text-2xl font-black text-slate-900 dark:text-slate-200 mt-1">
+                  ₹{selectedPayslip.grossSalary?.toLocaleString("en-IN")}
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  Base + All Allowances
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${activeMetric === "gross" ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => toggleMetric("deductions")}
+              className={`text-left p-5 rounded-2xl bg-white dark:bg-slate-900/80 border shadow-sm dark:shadow-card flex items-center justify-between transition-all hover:-translate-y-0.5 ${
+                activeMetric === "deductions"
+                  ? "border-rose-500 ring-2 ring-rose-500/30"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                  Total Deductions
+                </span>
+                <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                  ₹
+                  {(
+                    selectedPayslip.grossSalary - selectedPayslip.netSalary
+                  )?.toLocaleString("en-IN")}
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  PF & Statutory Taxes
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${activeMetric === "deductions" ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => toggleMetric("status")}
+              className={`text-left p-5 rounded-2xl bg-white dark:bg-slate-900/80 border shadow-sm dark:shadow-card flex items-center justify-between transition-all hover:-translate-y-0.5 ${
+                activeMetric === "status"
+                  ? "border-indigo-500 ring-2 ring-indigo-500/30"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                  Payment Status
+                </span>
+                <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedPayslip.paymentStatus === "Paid"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
+                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25"
+                    }`}
+                  >
+                    {selectedPayslip.paymentStatus}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  {selectedPayslip.paymentDate
+                    ? format(
+                        new Date(selectedPayslip.paymentDate),
+                        "dd MMM yyyy",
+                      )
+                    : "End of Month"}
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${activeMetric === "status" ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <CreditCard className="w-5 h-5" />
+              </div>
+            </button>
+          </div>
+
+          {/* Chart panel - jo card active hai uska graph yaha */}
+          {activeMetric && (
+            <div className="p-5 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-card transition-colors">
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-2">
+                {metricTitles[activeMetric]}
+              </h4>
+              {renderChart()}
+            </div>
+          )}
+
+          {/* FORMAL DIGITAL PAYSLIP CARD */}
+          <div className="rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-6 sm:p-10 shadow-sm dark:shadow-2xl space-y-8 transition-colors">
+            {/* Payslip Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+              <div className="flex items-center gap-3">
+                <HLetterLogo size={44} />
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                    WorkZen Technologies Pvt. Ltd.
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Salary Statement for {getMonthName(selectedPayslip.month)}{" "}
+                    {selectedPayslip.year}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-xs font-mono font-bold px-3 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/60 text-teal-700 dark:text-teal-300">
+                  SLIP-REF: WZ-{selectedPayslip.year}
+                  {String(selectedPayslip.month).padStart(2, "0")}-
+                  {selectedPayslip.userId?.employeeId || "EMP"}
+                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                  Confidential Compensation Document
+                </p>
+              </div>
+            </div>
+
+            {/* Employee Particulars Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-teal-100 dark:border-teal-900/40 text-xs">
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold block uppercase">
+                  Employee Name
+                </span>
+                <span className="text-slate-900 dark:text-white font-bold text-sm mt-0.5 block">
+                  {selectedPayslip.userId?.name}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold block uppercase">
+                  Employee ID
+                </span>
+                <span className="text-slate-800 dark:text-slate-200 font-mono font-bold mt-0.5 block">
+                  {selectedPayslip.userId?.employeeId}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold block uppercase">
+                  Department
+                </span>
+                <span className="text-slate-800 dark:text-slate-200 font-medium mt-0.5 block">
+                  {selectedPayslip.userId?.department}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 dark:text-slate-400 font-semibold block uppercase">
+                  Designation
+                </span>
+                <span className="text-slate-800 dark:text-slate-200 font-medium mt-0.5 block">
+                  {selectedPayslip.userId?.designation}
+                </span>
+              </div>
+            </div>
+
+            {/* Earnings & Deductions Tables */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-xs">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-emerald-500/30 pb-2">
+                  <h4 className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4" /> Earnings Breakdown
+                  </h4>
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase">
+                    Amount (INR)
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between py-1 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60">
+                    <span>Basic Salary</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹{selectedPayslip.basicSalary?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60">
+                    <span>House Rent Allowance (HRA)</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹{selectedPayslip.hra?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60">
+                    <span>Special & Performance Allowances</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹{selectedPayslip.allowances?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-sm pt-2">
+                    <span>Total Gross Earnings</span>
+                    <span className="font-mono">
+                      ₹{selectedPayslip.grossSalary?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-rose-500/30 pb-2">
+                  <h4 className="font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <TrendingDown className="w-4 h-4" /> Statutory Deductions
+                  </h4>
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase">
+                    Amount (INR)
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between py-1 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60">
+                    <span>Provident Fund (Employee PF)</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹
+                      {(selectedPayslip.deductions?.pf || 0)?.toLocaleString(
+                        "en-IN",
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60">
+                    <span>Income Tax (TDS)</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹
+                      {(selectedPayslip.deductions?.tax || 0)?.toLocaleString(
+                        "en-IN",
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60">
+                    <span>Unpaid Leave Deductions</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹
+                      {(
+                        selectedPayslip.deductions?.unpaidLeaveDeduction || 0
+                      )?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2.5 text-rose-600 dark:text-rose-400 font-bold text-sm pt-2">
+                    <span>Total Deductions</span>
+                    <span className="font-mono">
+                      ₹
+                      {(
+                        selectedPayslip.grossSalary - selectedPayslip.netSalary
+                      )?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Net Salary Highlight Footer Box */}
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900/5 dark:from-slate-800/50 via-teal-50 dark:via-teal-950/40 to-slate-100 dark:to-slate-900/60 border border-teal-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-teal-700 dark:text-teal-300 uppercase tracking-wider block">
+                  Net Salary Payable in Account
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                  {selectedPayslip.remarks ||
+                    "Standard monthly bank disbursement"}
+                </span>
+              </div>
+
+              <div className="text-right">
+                <span className="text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight">
+                  ₹{selectedPayslip.netSalary?.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default MySalaryPage;
