@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import EmployeeDirectoryPage from './pages/admin/EmployeeDirectoryPage';
+import EmployeeDirectoryPage_su from "./pages/superadmin/EmployeeDirectoryPage_su.jsx"
 import AllAttendancePage from './pages/admin/AllAttendancePage';
 import LeaveApprovalPage from './pages/admin/LeaveApprovalPage';
 import EmployeeContextView from './pages/admin/EmployeeContextView';
@@ -59,7 +60,8 @@ const RootRedirect = () => {
 };
 
 function App() {
-  return (
+  return (<>
+    
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
@@ -95,7 +97,8 @@ function App() {
                 </Route>
 
                 {/* Employee Role Protected Routes with Shared Layout */}
-                <Route element={<ProtectedRoute allowedRoles={['employee', 'admin']} />}>
+                {/* element={<ProtectedRoute allowedRoles={['employee', 'admin']} />} */}
+                <Route>
                   <Route element={<AppLayout />}>
                     <Route path="/employee" element={<EmployeeDashboard />} />
                     <Route path="/employee/attendance" element={<MyAttendancePage />} />
@@ -119,7 +122,7 @@ function App() {
                     <Route path="/superadmin/approvals" element={<WorkflowApprovals />} />
                     <Route
                       path="/superadmin/employees"
-                      element={<EmployeeDirectoryPage />}
+                      element={<EmployeeDirectoryPage_su />}
                     />
                     <Route
                       path="/superadmin/attendance"
@@ -128,8 +131,6 @@ function App() {
                     <Route path="/superadmin/profile" element={<AdminProfile />} />
                   </Route>
                 </Route>
-
-
                 {/* FinanceAdmin Role Protected Routes with Shared Layout */}
                 {/* element={<ProtectedRoute allowedRoles={['superadmin']} />} */}
                 <Route>
@@ -156,7 +157,6 @@ function App() {
                     />
                   </Route>
                 </Route>
-
                 {/* Manager Role Protected Routes with Shared Layout */}
                 {/* element={<ProtectedRoute allowedRoles={['superadmin']} />} */}
                 <Route >
@@ -177,7 +177,6 @@ function App() {
                     <Route path="/manager/profile" element={<ManagerProfile />} />
                   </Route>
                 </Route>
-
                 {/* Index and fallback redirects */}
                 <Route path="/" element={<RootRedirect />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
@@ -187,6 +186,7 @@ function App() {
         </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
+  </>
   );
 }
 

@@ -39,7 +39,7 @@ const AttendanceTime = () => {
   const [statusFilter, setStatusFilter] = useState("All");
 
   const [search, setSearch] = useState("");
-
+  const [attRecord,setattRecord] = useState([]);
   const [records, setRecords] = useState([]);
 
   const [stats, setStats] = useState({
@@ -131,7 +131,7 @@ const AttendanceTime = () => {
         params.search = search.trim();
       }
 
-      const response = await api.get("/attendance/all", {
+      const response = await api.get("/attendance", {
         params,
       });
 
@@ -304,15 +304,15 @@ const AttendanceTime = () => {
   // --------------------------------------------------
   // RENDER
   // --------------------------------------------------
-
+// console.log('Hello')
   return (
     <div className="min-h-screen w-full space-y-4 bg-gray-50 p-3 font-sans sm:p-4 lg:p-5">
       {/* ==================================================
           HEADER
       ================================================== */}
 
-      <div className="rounded-2xl bg-[#153B50] p-4 text-white shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-2xl bg-[#153B50] p- text-white shadow-sm sm:p-5">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-2 py-1">
               <Clock className="h-3 w-3" />
@@ -347,7 +347,10 @@ const AttendanceTime = () => {
                   value={selectedDate}
                   max={format(new Date(), "yyyy-MM-dd")}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="mt-0.5 bg-transparent text-[11px] font-bold text-[#153B50] outline-none"
+                  className="mt-0.5 mr- bg-transparent text-[11px] font-bold text-[#153B50] outline-none relative pr-10
+             [&::-webkit-calendar-picker-indicator]:absolute
+             [&::-webkit-calendar-picker-indicator]:right-2
+             [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                 />
               </div>
             </div>
@@ -372,10 +375,9 @@ const AttendanceTime = () => {
                 setSelectedRole(role);
                 setSearch("");
                 setStatusFilter("All");
-              }}  
-              className={`group rounded-xl border bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-                isActive ? config.active : "border-gray-200"
-              }`}
+              }}
+              className={`group rounded-xl border bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${isActive ? config.active : "border-gray-200"
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

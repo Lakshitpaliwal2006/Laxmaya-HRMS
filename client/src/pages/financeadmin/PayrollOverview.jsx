@@ -70,7 +70,7 @@ const PayrollOverview = () => {
         if (res.data.stats) setStats(res.data.stats);
       }
     } catch (error) {
-      toast.error('Failed to load payroll summary');
+      // toast.error('Failed to load payroll summary');
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,7 @@ const PayrollOverview = () => {
 
       setYearlyData(combined);
     } catch (error) {
-      toast.error('Failed to load yearly trend data');
+      // toast.error('Failed to load yearly trend data');
     } finally {
       setYearlyLoading(false);
     }

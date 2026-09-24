@@ -221,9 +221,8 @@ const EmployeeDirectoryPage = () => {
     <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* ───────────── LEFT RAIL: FILTERS ───────────── */}
       <aside
-        className={`w-full lg:w-60 shrink-0 lg:sticky lg:top-6 ${
-          filtersOpen ? "block" : "hidden lg:block"
-        }`}
+        className={`w-full lg:w-60 shrink-0 lg:sticky lg:top-6 ${filtersOpen ? "block" : "hidden lg:block"
+          }`}
       >
         <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-800">
@@ -451,18 +450,16 @@ const EmployeeDirectoryPage = () => {
                   <button
                     onClick={() => handleToggleStatus(emp)}
                     title={`Set to ${emp.status === "Active" ? "Inactive" : "Active"}`}
-                    className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-semibold transition-all ${
-                      emp.status === "Active"
+                    className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-semibold transition-all ${emp.status === "Active"
                         ? "bg-[#204A65]/10 text-[#204A65] dark:text-[#7BA8C4] border border-[#204A65]/25 hover:bg-[#204A65]/20"
                         : "bg-gray-200/70 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-700"
-                    }`}
+                      }`}
                   >
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        emp.status === "Active"
+                      className={`w-1.5 h-1.5 rounded-full ${emp.status === "Active"
                           ? "bg-[#204A65] dark:bg-[#7BA8C4]"
                           : "bg-gray-400"
-                      }`}
+                        }`}
                     />
                     {emp.status}
                   </button>
@@ -474,11 +471,10 @@ const EmployeeDirectoryPage = () => {
                     {emp.employeeId}
                   </span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      emp.role === "admin"
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${emp.role === "admin"
                         ? "bg-[#204A65] text-white"
                         : "bg-[#204A65]/10 text-[#204A65] dark:text-[#7BA8C4] border border-[#204A65]/25"
-                    }`}
+                      }`}
                   >
                     {emp.role === "admin" ? "Admin" : "Employee"}
                   </span>
@@ -581,11 +577,10 @@ const EmployeeDirectoryPage = () => {
                     )}
                     <button
                       onClick={() => setPage(n)}
-                      className={`min-w-[26px] h-[26px] px-1.5 rounded-lg text-[11px] font-semibold tabular-nums transition-colors ${
-                        n === currentPage
+                      className={`min-w-[26px] h-[26px] px-1.5 rounded-lg text-[11px] font-semibold tabular-nums transition-colors ${n === currentPage
                           ? "bg-[#204A65] text-white"
                           : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
+                        }`}
                     >
                       {n}
                     </button>
@@ -677,7 +672,6 @@ const EmployeeDirectoryPage = () => {
                     className={fieldClass}
                   >
                     <option value="employee">Employee</option>
-                    <option value="admin">Admin / HR</option>
                   </select>
                 </div>
 
@@ -991,11 +985,10 @@ const EmployeeDirectoryPage = () => {
                     Status
                   </span>
                   <div
-                    className={`font-semibold mt-0.5 ${
-                      selectedEmployee.status === "Active"
+                    className={`font-semibold mt-0.5 ${selectedEmployee.status === "Active"
                         ? "text-[#204A65] dark:text-[#7BA8C4]"
                         : "text-gray-500 dark:text-gray-400"
-                    }`}
+                      }`}
                   >
                     {selectedEmployee.status}
                   </div>

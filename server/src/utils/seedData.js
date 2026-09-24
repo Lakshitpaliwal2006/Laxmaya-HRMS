@@ -460,7 +460,7 @@ const seedDatabase = async (disconnectWhenDone = true) => {
         remarks: 'August 2026 Salary',
       },
     ];
-
+v 
     for (const sal of salaryRecords) {
       const salDoc = new Salary(sal);
       await salDoc.save();
@@ -469,12 +469,11 @@ const seedDatabase = async (disconnectWhenDone = true) => {
     console.log('✅ Dayflow HRMS Database seeded successfully!');
     console.log('----------------------------------------------------');
     console.log('🔑 DEMO CREDENTIALS:');
-    console.log('👑 Admin/HR : admin@dayflow.com / admin123 (Priya Iyer - HR Manager)');
-    console.log('🧑 Employee : alex@dayflow.com  / employee123 (Ananya Sharma - Senior Dev)');
-    console.log('🧑 Employee : elena@dayflow.com / employee123 (Rohan Nair - Lead UI/UX)');
-    console.log('🧑 Employee : marcus@dayflow.com / employee123 (Arjun Menon - Marketing Dir)');
-    console.log('🧑 Employee : sneha@dayflow.com / employee123 (Sneha Kulkarni - Finance)');
-    console.log('🧑 Employee : karthik@dayflow.com / employee123 (Karthik Reddy - DevOps)');
+    console.log('👑 SuperAdmin/HR : admin@dayflow.com / admin123 (Arav Sharma - Super Admin)');
+    console.log('🧑 HR Admin : alex@dayflow.com  / employee123 (Priya Iyer - HR Admin)');
+    console.log('🧑 Finance Admin : elena@dayflow.com / employee123 (Ananya Sharma - Finance Admin)');
+    console.log('🧑 Manager : marcus@dayflow.com / employee123 (Rohan Nair - Manager)');
+    console.log('🧑 Employee : sneha@dayflow.com / employee123 (Arjun Menon - Employee)');
     console.log('----------------------------------------------------');
 
     if (disconnectWhenDone) {
@@ -489,8 +488,8 @@ const seedDatabase = async (disconnectWhenDone = true) => {
 
 // If run directly via `node src/utils/seedData.js`
 if (require.main === module) {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/dayflow_hrms';
-  mongoose.connect(mongoUri)
+  const mongoUrl = process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/laxmaya_hrms';
+  mongoose.connect(mongoUrl)
     .then(() => seedDatabase(true))
     .catch((err) => {
       console.error(`Could not connect to MongoDB for manual seed: ${err.message}`);

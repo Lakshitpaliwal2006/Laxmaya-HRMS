@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
-
+const User = require('./models/User');
+const Employee = require('./models/Employee.js');
 // Load environment variables
 dotenv.config();
 
@@ -15,7 +16,7 @@ connectDB();
 // Middleware
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', '*'],
     credentials: true,
   })
 );
@@ -28,16 +29,17 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/leaves', require('./routes/leaveRoutes'));
 app.use('/api/salaries', require('./routes/salaryRoutes'));
+app.use('/api/employees', require('./routes/employeeRoutes.js'))
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    message: 'Dayflow HRMS API server is running smoothly',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-  });
-});
+// app.get('/api/health', (req, res) => {
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Dayflow HRMS API server is running smoothly',
+//     timestamp: new Date().toISOString(),
+//     version: '1.0.0',
+//   });
+// });
 
 // Central 404 handler for unknown routes
 app.use('/api/*', (req, res) => {
@@ -57,11 +59,15 @@ app.use((err, req, res, next) => {
   });
 });
 
+app.get('/', (req, res) => {
+  res.send('Home page')
+})
+
 // Start listening
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`🚀 Dayflow HRMS Server listening on http://localhost:${PORT}`);
-    console.log(`📡 Health check available at http://localhost:${PORT}/api/health`);
+    // console.log(`📡 Health check available at http://localhost:${PORT}/api/health`);
   });
 }
 

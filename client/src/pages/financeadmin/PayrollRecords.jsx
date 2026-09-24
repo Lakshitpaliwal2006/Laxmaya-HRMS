@@ -105,7 +105,7 @@ const PayrollRecords = () => {
                 }
             }
         } catch (error) {
-            toast.error('Failed to load payroll records');
+            // toast.error('Failed to load payroll records');
         } finally {
             setLoading(false);
         }

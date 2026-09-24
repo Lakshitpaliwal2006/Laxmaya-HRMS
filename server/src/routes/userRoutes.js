@@ -15,7 +15,6 @@ const { protect, authorize } = require('../middleware/auth');
 
 // All routes require authentication
 router.use(protect);
-
 router.route('/')
   .get(authorize('admin'), getAllEmployees)
   .post(authorize('admin'), createEmployee);

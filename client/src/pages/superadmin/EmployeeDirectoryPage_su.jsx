@@ -20,29 +20,7 @@ import {
 import { format } from 'date-fns';
 import { useToast } from '../../context/ToastContext';
 import demoAvatars from '../../utils/avatars';
-
-/*
-  LIGHT THEME
-  Dark navy:       #19364D
-  Primary blue:    #204A65
-  Medium blue:     #286A8F
-  Teal accent:     #2D94A8
-  Page background: #E8F2F6
-  Soft blue:       #DCEAF0
-  Border:          #C8D9E1
-  Muted text:      #8EA5B2
-  White:           #FFFFFF
-
-  DARK THEME
-  Page background: #081923
-  Surface:          #102B3A
-  Soft surface:     #17384A
-  Header:           #0B2230
-  Border:           #31576B
-  Main text:        #EDF7FA
-  Muted text:       #9AB6C4
-  Accent:           #5BAFC1
-*/
+import api from '../../api/client.js';
 
 const ROLES = ['Employee', 'HR', 'Manager'];
 const STATUSES = ['All', 'Active', 'Holiday', 'Inactive'];
@@ -102,110 +80,6 @@ const STATUS_STYLE = {
   },
 };
 
-// ---- MOCK DATA: replace with API data when backend is ready ----
-const MOCK_USERS = [
-  {
-    _id: 'u1',
-    name: 'Ramesh Patel',
-    email: 'ramesh.patel@workzen.io',
-    role: 'HR',
-    department: 'People Operations',
-    status: 'Active',
-    lastLogin: '2026-09-16T09:02:14',
-    avatar: '',
-  },
-  {
-    _id: 'u2',
-    name: 'Arjun Mehta',
-    email: 'arjun.mehta@workzen.io',
-    role: 'Manager',
-    department: 'Engineering',
-    status: 'Active',
-    lastLogin: '2026-09-16T08:40:02',
-    avatar: '',
-  },
-  {
-    _id: 'u3',
-    name: 'Ananya Sharma',
-    email: 'ananya.sharma@workzen.io',
-    role: 'HR',
-    department: 'Talent Acquisition',
-    status: 'Holiday',
-    lastLogin: '2026-09-16T09:45:03',
-    avatar: '',
-  },
-  {
-    _id: 'u4',
-    name: 'Devika Menon',
-    email: 'devika.menon@workzen.io',
-    role: 'HR',
-    department: 'Employee Relations',
-    status: 'Inactive',
-    lastLogin: '2026-09-10T13:20:00',
-    avatar: '',
-  },
-  {
-    _id: 'u5',
-    name: 'Marcus Vance',
-    email: 'marcus.vance@workzen.io',
-    role: 'Manager',
-    department: 'Product Design',
-    status: 'Active',
-    lastLogin: '2026-09-16T10:05:22',
-    avatar: '',
-  },
-  {
-    _id: 'u6',
-    name: 'Siddharth Nair',
-    email: 'siddharth.nair@workzen.io',
-    role: 'Manager',
-    department: 'Finance',
-    status: 'Holiday',
-    lastLogin: '2026-09-16T08:55:47',
-    avatar: '',
-  },
-  {
-    _id: 'u7',
-    name: 'Elena Rostova',
-    email: 'elena.rostova@workzen.io',
-    role: 'Employee',
-    department: 'Engineering',
-    status: 'Active',
-    lastLogin: '2026-09-15T18:12:09',
-    avatar: '',
-  },
-  {
-    _id: 'u8',
-    name: 'Priya Kapoor',
-    email: 'priya.kapoor@workzen.io',
-    role: 'Employee',
-    department: 'Finance',
-    status: 'Holiday',
-    lastLogin: '2026-08-30T11:02:00',
-    avatar: '',
-  },
-  {
-    _id: 'u9',
-    name: 'Kabir Sethi',
-    email: 'kabir.sethi@workzen.io',
-    role: 'Employee',
-    department: 'Sales & Marketing',
-    status: 'Active',
-    lastLogin: '2026-09-16T07:58:41',
-    avatar: '',
-  },
-  {
-    _id: 'u10',
-    name: 'Rhea Sengupta',
-    email: 'rhea.sengupta@workzen.io',
-    role: 'Employee',
-    department: 'Design',
-    status: 'Inactive',
-    lastLogin: '2026-08-25T14:10:00',
-    avatar: '',
-  },
-];
-
 const inputClass =
   'w-full h-11 px-3.5 rounded-xl font-medium border outline-none transition-all ' +
   'bg-[#E8F2F6] text-[#19364D] placeholder:text-[#8EA5B2] border-[#C8D9E1] ' +
@@ -222,13 +96,53 @@ const secondaryDrawerButtonClass =
   'bg-[#E8F2F6] text-[#204A65] border-[#C8D9E1] hover:bg-[#DCEAF0] hover:border-[#286A8F] ' +
   'dark:bg-[#17384A] dark:text-[#CDE6ED] dark:border-[#31576B] dark:hover:bg-[#20485B] dark:hover:border-[#5BAFC1]';
 
-const SuperAdminUsersPage = () => {
+const activeToggleClass =
+  'border-[#286A8F] bg-white text-[#286A8F] hover:bg-[#E8F2F6] dark:border-[#5BAFC1] dark:bg-[#102B3A] dark:text-[#75C6D4] dark:hover:bg-[#17384A]';
+const inactiveToggleClass =
+  'border-[#2D94A8] bg-[#2D94A8] text-white hover:border-[#286A8F] hover:bg-[#286A8F] dark:border-[#3D9FB3] dark:bg-[#3D9FB3] dark:hover:border-[#5BAFC1] dark:hover:bg-[#286A8F]';
+
+/* ---------- Helpers (outside the component) ---------- */
+
+const normalizeRole = (value = '') => {
+  const v = String(value).trim().toLowerCase();
+  if (v === 'hr' || v === 'human resources') return 'HR';
+  if (v === 'manager') return 'Manager';
+  return 'Employee';
+};
+
+const normalizeStatus = (e) => {
+  if (typeof e.isActive === 'boolean') return e.isActive ? 'Active' : 'Inactive';
+  const v = String(e.status || '').trim().toLowerCase();
+  if (v === 'active') return 'Active';
+  if (['holiday', 'leave', 'on leave', 'vacation'].includes(v)) return 'Holiday';
+  return 'Inactive';
+};
+
+const normalizeUser = (e = {}) => ({
+  _id: e._id || e.id,
+  name: e.name || e.fullName || '',
+  email: e.email || '',
+  role: normalizeRole(e.role),
+  department: e.department || '',
+  status: normalizeStatus(e),
+  lastLogin: e.lastLogin || null,
+  avatar: e.avatar || '',
+});
+
+// Avoids a crash when lastLogin is missing or not a valid date
+const formatDate = (value, pattern) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : format(d, pattern);
+};
+
+const EMPTY_FORM = { name: '', email: '', role: '', department: '', status: '' };
+
+const EmployeeDirectoryPage_su = () => {
   const toast = useToast();
 
-  const [allUsers, setAllUsers] = useState(MOCK_USERS);
-  const [users, setUsers] = useState([]);
+  const [emp, setEmp] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('Employee');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -236,62 +150,43 @@ const SuperAdminUsersPage = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'Employee',
-    department: '',
-    status: 'Active',
-  });
-
-  // Filter data whenever role, status, search, or user data changes.
+  // Load employees from the backend
   useEffect(() => {
-    setLoading(true);
-
-    const timer = setTimeout(() => {
-      let filtered = [...allUsers];
-
-      if (selectedRole !== 'All') {
-        filtered = filtered.filter(
-          (user) => user.role === selectedRole
+    const fetchEmployees = async () => {
+      try {
+        const response = await api.get('/employees');
+        const list = Array.isArray(response.data)
+          ? response.data
+          : response.data?.employees || [];
+        setEmp(list.map(normalizeUser));
+      } catch (error) {
+        console.error(
+          'Error fetching employees:',
+          error.response?.status,
+          error.config?.url
         );
-      }
-
-      if (statusFilter !== 'All') {
-        filtered = filtered.filter(
-          (user) => user.status === statusFilter
+        toast.error(
+          error.response?.data?.message ||
+          'Could not load employees from the server'
         );
+        setEmp([]);
+      } finally {
+        setLoading(false);
       }
-
-      const query = search.trim().toLowerCase();
-
-      if (query) {
-        filtered = filtered.filter(
-          (user) =>
-            user.name.toLowerCase().includes(query) ||
-            user.email.toLowerCase().includes(query) ||
-            user.department?.toLowerCase().includes(query)
-        );
-      }
-
-      setUsers(filtered);
-      setLoading(false);
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [allUsers, search, selectedRole, statusFilter]);
+    };
+    fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lock page scrolling and support Escape while drawer is open.
   useEffect(() => {
     if (!drawerOpen) return undefined;
 
     const previousOverflow = document.body.style.overflow;
-
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setDrawerOpen(false);
-      }
+      if (event.key === 'Escape') setDrawerOpen(false);
     };
 
     document.body.style.overflow = 'hidden';
@@ -303,46 +198,45 @@ const SuperAdminUsersPage = () => {
     };
   }, [drawerOpen]);
 
+  // Filtered list (role + status + search)
+  const users = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return emp.filter((user) => {
+      if (selectedRole !== 'All' && user.role !== selectedRole) return false;
+      if (statusFilter !== 'All' && user.status !== statusFilter) return false;
+      if (!query) return true;
+
+      return (
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.department.toLowerCase().includes(query)
+      );
+    });
+  }, [emp, search, selectedRole, statusFilter]);
+
   const roleMetrics = useMemo(
     () => ({
-      Employee: allUsers.filter(
-        (user) => user.role === 'Employee'
-      ).length,
-      HR: allUsers.filter((user) => user.role === 'HR').length,
-      Manager: allUsers.filter(
-        (user) => user.role === 'Manager'
-      ).length,
+      Employee: emp.filter((u) => u.role === 'Employee').length,
+      HR: emp.filter((u) => u.role === 'HR').length,
+      Manager: emp.filter((u) => u.role === 'Manager').length,
     }),
-    [allUsers]
+    [emp]
   );
 
   const statusMetrics = useMemo(() => {
     const roleUsers =
-      selectedRole === 'All'
-        ? allUsers
-        : allUsers.filter(
-            (user) => user.role === selectedRole
-          );
-
+      selectedRole === 'All' ? emp : emp.filter((u) => u.role === selectedRole);
     return {
       All: roleUsers.length,
-      Active: roleUsers.filter(
-        (user) => user.status === 'Active'
-      ).length,
-      Holiday: roleUsers.filter(
-        (user) => user.status === 'Holiday'
-      ).length,
-      Inactive: roleUsers.filter(
-        (user) => user.status === 'Inactive'
-      ).length,
+      Active: roleUsers.filter((u) => u.status === 'Active').length,
+      Holiday: roleUsers.filter((u) => u.status === 'Holiday').length,
+      Inactive: roleUsers.filter((u) => u.status === 'Inactive').length,
     };
-  }, [allUsers, selectedRole]);
+  }, [emp, selectedRole]);
 
   const updateForm = (field, value) => {
-    setFormData((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
+    setFormData((previous) => ({ ...previous, [field]: value }));
   };
 
   const handleRoleCardClick = (role) => {
@@ -357,24 +251,16 @@ const SuperAdminUsersPage = () => {
 
   const openCreateDrawer = () => {
     setEditingUser(null);
-
     setFormData({
-      name: '',
-      email: '',
-      role:
-        selectedRole === 'All'
-          ? 'Employee'
-          : selectedRole,
-      department: '',
+      ...EMPTY_FORM,
+      role: selectedRole === 'All' ? 'Employee' : selectedRole,
       status: 'Active',
     });
-
     setDrawerOpen(true);
   };
 
   const openEditDrawer = (user) => {
     setEditingUser(user);
-
     setFormData({
       name: user.name,
       email: user.email,
@@ -382,7 +268,6 @@ const SuperAdminUsersPage = () => {
       department: user.department || '',
       status: user.status || 'Active',
     });
-
     setDrawerOpen(true);
   };
 
@@ -391,106 +276,82 @@ const SuperAdminUsersPage = () => {
     setSaving(false);
   };
 
-  const handleFormSubmit = (event) => {
+  // Create / update via backend
+  const handleFormSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
 
-    setTimeout(() => {
+    try {
       if (editingUser) {
-        setAllUsers((previousUsers) =>
-          previousUsers.map((user) =>
-            user._id === editingUser._id
-              ? {
-                  ...user,
-                  ...formData,
-                }
-              : user
+        const res = await api.put(`/employees/${editingUser._id}`, formData);
+        const updated = normalizeUser(res.data?.employee || res.data);
+        // keep existing values if the API returns only a partial record
+        setEmp((prev) =>
+          prev.map((u) =>
+            u._id === editingUser._id
+              ? { ...u, ...formData, ...(updated._id ? updated : {}) }
+              : u
           )
         );
-
         toast.success('Member updated successfully');
       } else {
-        const newUser = {
-          _id: `u-${Date.now()}`,
-          ...formData,
-          lastLogin: null,
-          avatar: '',
-        };
-
-        setAllUsers((previousUsers) => [
-          ...previousUsers,
-          newUser,
-        ]);
-
-        toast.success(
-          `${formData.name} added successfully`
-        );
+        const res = await api.post('/employees', formData);
+        const created = normalizeUser(res.data?.employee || res.data);
+        setEmp((prev) => [...prev, { ...formData, ...created }]);
+        toast.success(`${formData.name} added successfully`);
       }
-
-      setSaving(false);
       setDrawerOpen(false);
       setEditingUser(null);
-    }, 400);
-  };
-
-  const toggleStatus = (user) => {
-    const nextStatus =
-      user.status === 'Active' ? 'Inactive' : 'Active';
-
-    setAllUsers((previousUsers) =>
-      previousUsers.map((currentUser) =>
-        currentUser._id === user._id
-          ? {
-              ...currentUser,
-              status: nextStatus,
-            }
-          : currentUser
-      )
-    );
-
-    if (editingUser?._id === user._id) {
-      setEditingUser((previous) => ({
-        ...previous,
-        status: nextStatus,
-      }));
-
-      setFormData((previous) => ({
-        ...previous,
-        status: nextStatus,
-      }));
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not save member');
+    } finally {
+      setSaving(false);
     }
-
-    toast.success(
-      `${user.name} status changed to ${nextStatus}`
-    );
   };
 
+  const toggleStatus = async (user) => {
+    const nextStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+
+    try {
+      await api.put(`/employees/${user._id}`, { status: nextStatus });
+
+      setEmp((prev) =>
+        prev.map((u) => (u._id === user._id ? { ...u, status: nextStatus } : u))
+      );
+
+      if (editingUser?._id === user._id) {
+        setEditingUser((prev) => ({ ...prev, status: nextStatus }));
+        setFormData((prev) => ({ ...prev, status: nextStatus }));
+      }
+
+      toast.success(`${user.name} status changed to ${nextStatus}`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not change status');
+    }
+  };
+
+  // TODO: connect to a real backend endpoint
   const resetPassword = (user) => {
-    toast.success(
-      `Password reset link sent to ${user.email}`
-    );
+    toast.success(`Password reset link sent to ${user.email}`);
   };
 
+  // TODO: connect to a real backend endpoint
   const impersonateUser = (user) => {
     toast.success(`Now viewing as ${user.name}`);
   };
 
-  const deleteUser = (user) => {
-    const confirmed = window.confirm(
-      `Delete ${user.name}? This action cannot be undone.`
-    );
+  const deleteUser = async (user) => {
+    if (!window.confirm(`Delete ${user.name}? This action cannot be undone.`)) return;
 
-    if (!confirmed) return;
-
-    setAllUsers((previousUsers) =>
-      previousUsers.filter(
-        (currentUser) => currentUser._id !== user._id
-      )
-    );
-
-    toast.success('Member deleted');
-    setDrawerOpen(false);
-    setEditingUser(null);
+    try {
+      await api.delete(`/employees/${user._id}`);
+      setEmp((prev) => prev.filter((u) => u._id !== user._id));
+      toast.success('Member deleted');
+      setDrawerOpen(false);
+      setEditingUser(null);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not delete member');
+    }
   };
 
   return (
@@ -507,15 +368,12 @@ const SuperAdminUsersPage = () => {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#19364D] text-white shadow-md shadow-[#19364D]/20 dark:bg-[#2D94A8] dark:shadow-black/20">
                 <Users className="h-[18px] w-[18px]" />
               </div>
-
               <h2 className="text-2xl font-extrabold tracking-tight text-[#19364D] dark:text-[#EDF7FA]">
                 Organization Directory
               </h2>
             </div>
-
             <p className="text-sm text-[#708D9B] dark:text-[#9AB6C4]">
-              View and manage employees, human resources,
-              and management teams.
+              View and manage employees, human resources, and management teams.
             </p>
           </div>
 
@@ -541,27 +399,24 @@ const SuperAdminUsersPage = () => {
                 key={role}
                 type="button"
                 onClick={() => handleRoleCardClick(role)}
-                className={`relative overflow-hidden rounded-2xl border p-5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#286A8F] dark:focus-visible:ring-[#5BAFC1] ${
-                  selected
+                className={`relative overflow-hidden rounded-2xl border p-5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#286A8F] dark:focus-visible:ring-[#5BAFC1] ${selected
                     ? 'border-[#286A8F] bg-white shadow-lg shadow-[#286A8F]/15 ring-2 ring-[#286A8F]/15 dark:border-[#5BAFC1] dark:bg-[#102B3A] dark:shadow-black/25 dark:ring-[#5BAFC1]/15'
                     : 'border-[#C8D9E1] bg-white shadow-sm shadow-[#204A65]/5 hover:-translate-y-0.5 hover:border-[#286A8F] hover:shadow-md dark:border-[#294C5F] dark:bg-[#102B3A] dark:shadow-black/20 dark:hover:border-[#5BAFC1]'
-                }`}
+                  }`}
               >
                 <div
-                  className={`absolute inset-x-0 top-0 h-1 ${
-                    selected
+                  className={`absolute inset-x-0 top-0 h-1 ${selected
                       ? 'bg-[#2D94A8] dark:bg-[#5BAFC1]'
                       : 'bg-[#DCEAF0] dark:bg-[#294C5F]'
-                  }`}
+                    }`}
                 />
 
                 <div className="mb-4 flex items-center justify-between">
                   <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${
-                      selected
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${selected
                         ? 'bg-[#19364D] text-white shadow-md shadow-[#19364D]/20 dark:bg-[#2D94A8] dark:shadow-black/20'
                         : 'bg-[#DCEAF0] text-[#286A8F] dark:bg-[#17384A] dark:text-[#75C6D4]'
-                    }`}
+                      }`}
                   >
                     <RoleIcon className="h-5 w-5" />
                   </div>
@@ -629,30 +484,25 @@ const SuperAdminUsersPage = () => {
                     key={status}
                     type="button"
                     onClick={() => setStatusFilter(status)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
-                      selected
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${selected
                         ? 'border-[#19364D] bg-[#19364D] text-white shadow-sm shadow-[#19364D]/20 dark:border-[#2D94A8] dark:bg-[#2D94A8] dark:shadow-black/20'
                         : 'border-[#C8D9E1] bg-white text-[#286A8F] hover:border-[#286A8F] hover:bg-[#E8F2F6] dark:border-[#31576B] dark:bg-[#102B3A] dark:text-[#9DD5DF] dark:hover:border-[#5BAFC1] dark:hover:bg-[#17384A]'
-                    }`}
+                      }`}
                   >
                     {StatusIcon && (
                       <StatusIcon
-                        className={`h-3.5 w-3.5 ${
-                          selected
-                            ? 'text-white'
-                            : statusStyle.filterIcon
-                        }`}
+                        className={`h-3.5 w-3.5 ${selected ? 'text-white' : statusStyle.filterIcon
+                          }`}
                       />
                     )}
 
                     <span>{STATUS_LABELS[status]}</span>
 
                     <span
-                      className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
-                        selected
+                      className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${selected
                           ? 'bg-white/15 text-white'
                           : 'bg-[#DCEAF0] text-[#204A65] dark:bg-[#20485B] dark:text-[#CDE6ED]'
-                      }`}
+                        }`}
                     >
                       {count}
                     </span>
@@ -669,14 +519,11 @@ const SuperAdminUsersPage = () => {
             <input
               type="search"
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
-              placeholder={`Search ${
-                selectedRole === 'All'
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={`Search ${selectedRole === 'All'
                   ? 'members'
                   : ROLE_LABELS[selectedRole].toLowerCase()
-              } by name, email or department...`}
+                } by name, email or department...`}
               className="h-12 w-full rounded-xl border border-[#C8D9E1] bg-[#E8F2F6] pl-11 pr-4 text-sm font-medium text-[#19364D] outline-none transition-all placeholder:text-[#8EA5B2] focus:border-[#286A8F] focus:bg-white focus:ring-2 focus:ring-[#286A8F]/20 dark:border-[#31576B] dark:bg-[#0D2533] dark:text-[#EDF7FA] dark:placeholder:text-[#7696A6] dark:focus:border-[#5BAFC1] dark:focus:bg-[#102D3D] dark:focus:ring-[#5BAFC1]/20"
             />
           </div>
@@ -687,22 +534,17 @@ const SuperAdminUsersPage = () => {
           {loading ? (
             <div className="flex flex-col items-center gap-3 p-14 text-center text-[#8EA5B2] dark:text-[#9AB6C4]">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#286A8F] border-t-transparent dark:border-[#5BAFC1] dark:border-t-transparent" />
-
-              <span className="text-xs font-medium">
-                Loading directory records...
-              </span>
+              <span className="text-xs font-medium">Loading directory records...</span>
             </div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center gap-3 p-14 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F2F6] text-[#286A8F] dark:bg-[#17384A] dark:text-[#75C6D4]">
                 <Search className="h-5 w-5" />
               </div>
-
               <div>
                 <p className="text-sm font-bold text-[#19364D] dark:text-[#EDF7FA]">
                   No members found
                 </p>
-
                 <p className="mt-1 text-xs text-[#8EA5B2] dark:text-[#9AB6C4]">
                   Try changing your search or filters.
                 </p>
@@ -715,37 +557,24 @@ const SuperAdminUsersPage = () => {
                   <tr>
                     <th className="px-6 py-4">User</th>
                     <th className="px-4 py-4">Role</th>
-                    <th className="px-4 py-4">
-                      Department
-                    </th>
-                    <th className="px-4 py-4">
-                      Last Login
-                    </th>
+                    <th className="px-4 py-4">Department</th>
+                    <th className="px-4 py-4">Last Login</th>
                     <th className="px-4 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">
-                      Actions
-                    </th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-[#DCEAF0] bg-white font-medium dark:divide-[#294C5F] dark:bg-[#102B3A]">
                   {users.map((user) => {
-                    const roleStyle =
-                      ROLE_STYLE[user.role] ||
-                      ROLE_STYLE.Employee;
+                    const roleStyle = ROLE_STYLE[user.role] || ROLE_STYLE.Employee;
                     const RoleIcon = roleStyle.icon;
-
-                    const statusStyle =
-                      STATUS_STYLE[user.status] ||
-                      STATUS_STYLE.Inactive;
+                    const statusStyle = STATUS_STYLE[user.status] || STATUS_STYLE.Inactive;
                     const StatusIcon = statusStyle.icon;
 
                     return (
                       <tr
                         key={user._id}
-                        onClick={() =>
-                          openEditDrawer(user)
-                        }
+                        onClick={() => openEditDrawer(user)}
                         className="cursor-pointer transition-colors hover:bg-[#E8F2F6] dark:hover:bg-[#17384A]"
                       >
                         <td className="px-6 py-4">
@@ -753,9 +582,7 @@ const SuperAdminUsersPage = () => {
                             <img
                               src={
                                 user.avatar ||
-                                demoAvatars.generic(
-                                  user.name?.slice(0, 2)
-                                )
+                                demoAvatars.generic(user.name?.slice(0, 2))
                               }
                               alt={user.name}
                               className={`h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#102B3A] ${roleStyle.ring}`}
@@ -765,13 +592,9 @@ const SuperAdminUsersPage = () => {
                               <div className="truncate text-sm font-bold leading-tight text-[#19364D] dark:text-[#EDF7FA]">
                                 {user.name}
                               </div>
-
                               <div className="mt-1 flex items-center gap-1 text-[11px] text-[#8EA5B2] dark:text-[#9AB6C4]">
                                 <Mail className="h-3 w-3 shrink-0" />
-
-                                <span className="truncate">
-                                  {user.email}
-                                </span>
+                                <span className="truncate">{user.email}</span>
                               </div>
                             </div>
                           </div>
@@ -791,12 +614,7 @@ const SuperAdminUsersPage = () => {
                         </td>
 
                         <td className="px-4 py-4 font-mono text-[#708D9B] dark:text-[#9AB6C4]">
-                          {user.lastLogin
-                            ? format(
-                                new Date(user.lastLogin),
-                                'dd MMM, hh:mm a'
-                              )
-                            : 'Never'}
+                          {formatDate(user.lastLogin, 'dd MMM, hh:mm a') || 'Never'}
                         </td>
 
                         <td className="px-4 py-4">
@@ -804,25 +622,20 @@ const SuperAdminUsersPage = () => {
                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${statusStyle.badge}`}
                           >
                             <StatusIcon className="h-3 w-3" />
-                            {STATUS_LABELS[user.status] ||
-                              user.status}
+                            {STATUS_LABELS[user.status] || user.status}
                           </span>
                         </td>
 
                         <td
                           className="px-6 py-4 text-right"
-                          onClick={(event) =>
-                            event.stopPropagation()
-                          }
+                          onClick={(event) => event.stopPropagation()}
                         >
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               title="Reset password"
                               aria-label={`Reset password for ${user.name}`}
-                              onClick={() =>
-                                resetPassword(user)
-                              }
+                              onClick={() => resetPassword(user)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-[#286A8F] transition-all hover:bg-[#DCEAF0] hover:text-[#19364D] dark:text-[#75C6D4] dark:hover:bg-[#20485B] dark:hover:text-white"
                             >
                               <KeyRound className="h-3.5 w-3.5" />
@@ -832,9 +645,7 @@ const SuperAdminUsersPage = () => {
                               type="button"
                               title="Impersonate"
                               aria-label={`Impersonate ${user.name}`}
-                              onClick={() =>
-                                impersonateUser(user)
-                              }
+                              onClick={() => impersonateUser(user)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-[#286A8F] transition-all hover:bg-[#DCEAF0] hover:text-[#19364D] dark:text-[#75C6D4] dark:hover:bg-[#20485B] dark:hover:text-white"
                             >
                               <LogIn className="h-3.5 w-3.5" />
@@ -842,24 +653,17 @@ const SuperAdminUsersPage = () => {
 
                             <button
                               type="button"
-                              title={
-                                user.status === 'Active'
-                                  ? 'Deactivate'
-                                  : 'Activate'
-                              }
+                              title={user.status === 'Active' ? 'Deactivate' : 'Activate'}
                               aria-label={
                                 user.status === 'Active'
                                   ? `Deactivate ${user.name}`
                                   : `Activate ${user.name}`
                               }
-                              onClick={() =>
-                                toggleStatus(user)
-                              }
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-all ${
-                                user.status === 'Active'
-                                  ? 'border-[#286A8F] bg-white text-[#286A8F] hover:bg-[#E8F2F6] dark:border-[#5BAFC1] dark:bg-[#102B3A] dark:text-[#75C6D4] dark:hover:bg-[#17384A]'
-                                  : 'border-[#2D94A8] bg-[#2D94A8] text-white hover:border-[#286A8F] hover:bg-[#286A8F] dark:border-[#3D9FB3] dark:bg-[#3D9FB3] dark:hover:border-[#5BAFC1] dark:hover:bg-[#286A8F]'
-                              }`}
+                              onClick={() => toggleStatus(user)}
+                              className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-all ${user.status === 'Active'
+                                  ? activeToggleClass
+                                  : inactiveToggleClass
+                                }`}
                             >
                               {user.status === 'Active' ? (
                                 <PowerOff className="h-3.5 w-3.5" />
@@ -872,9 +676,7 @@ const SuperAdminUsersPage = () => {
                               type="button"
                               title="Edit member"
                               aria-label={`Edit ${user.name}`}
-                              onClick={() =>
-                                openEditDrawer(user)
-                              }
+                              onClick={() => openEditDrawer(user)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#286A8F] text-white transition-all hover:bg-[#19364D] dark:bg-[#2D94A8] dark:hover:bg-[#3D9FB3]"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
@@ -894,32 +696,25 @@ const SuperAdminUsersPage = () => {
       {/* Drawer Backdrop */}
       <div
         onClick={closeDrawer}
-        className={`fixed inset-0 z-40 bg-[#19364D]/55 backdrop-blur-sm transition-opacity duration-300 dark:bg-black/65 ${
-          drawerOpen
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0'
-        }`}
+        className={`fixed inset-0 z-40 bg-[#19364D]/55 backdrop-blur-sm transition-opacity duration-300 dark:bg-black/65 ${drawerOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          }`}
       />
 
       {/* Add/Edit Drawer */}
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={
-          editingUser ? 'Edit member' : 'Add member'
-        }
+        aria-label={editingUser ? 'Edit member' : 'Add member'}
         aria-hidden={!drawerOpen}
-        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-md transform flex-col bg-white shadow-2xl transition-all duration-300 ease-out dark:bg-[#102B3A] dark:shadow-black/50 ${
-          drawerOpen
+        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-md transform flex-col bg-white shadow-2xl transition-all duration-300 ease-out dark:bg-[#102B3A] dark:shadow-black/50 ${drawerOpen
             ? 'translate-x-0 pointer-events-auto'
             : 'translate-x-full pointer-events-none'
-        }`}
+          }`}
       >
         {/* Drawer Header */}
         <div className="relative shrink-0 overflow-hidden bg-[#19364D] px-6 pb-7 pt-6 dark:bg-[#0B2230]">
           <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-[#2D94A8]/25 dark:bg-[#5BAFC1]/20" />
           <div className="pointer-events-none absolute -bottom-12 right-20 h-28 w-28 rounded-full bg-[#286A8F]/25 dark:bg-[#2D94A8]/20" />
-
           <button
             type="button"
             onClick={closeDrawer}
@@ -931,9 +726,7 @@ const SuperAdminUsersPage = () => {
 
           <div className="relative z-10">
             <span className="text-[10px] font-bold uppercase tracking-wider text-white/65">
-              {editingUser
-                ? 'Member Details'
-                : 'New Member'}
+              {editingUser ? 'Member Details' : 'New Member'}
             </span>
 
             {editingUser ? (
@@ -941,19 +734,15 @@ const SuperAdminUsersPage = () => {
                 <img
                   src={
                     editingUser.avatar ||
-                    demoAvatars.generic(
-                      editingUser.name?.slice(0, 2)
-                    )
+                    demoAvatars.generic(editingUser.name?.slice(0, 2))
                   }
                   alt={editingUser.name}
                   className="h-12 w-12 rounded-full object-cover ring-2 ring-white/40"
                 />
-
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-bold leading-tight text-white">
                     {editingUser.name}
                   </h3>
-
                   <p className="mt-1 truncate text-xs text-white/70">
                     {editingUser.email}
                   </p>
@@ -964,10 +753,8 @@ const SuperAdminUsersPage = () => {
                 <h3 className="mt-1 text-lg font-bold text-white">
                   Add to Organization
                 </h3>
-
                 <p className="mt-1 text-xs text-white/65">
-                  Create a new member account and assign
-                  their role.
+                  Create a new member account and assign their role.
                 </p>
               </>
             )}
@@ -982,9 +769,7 @@ const SuperAdminUsersPage = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    resetPassword(editingUser)
-                  }
+                  onClick={() => resetPassword(editingUser)}
                   className={secondaryDrawerButtonClass}
                 >
                   <KeyRound className="h-3.5 w-3.5" />
@@ -993,9 +778,7 @@ const SuperAdminUsersPage = () => {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    impersonateUser(editingUser)
-                  }
+                  onClick={() => impersonateUser(editingUser)}
                   className={secondaryDrawerButtonClass}
                 >
                   <LogIn className="h-3.5 w-3.5" />
@@ -1004,86 +787,58 @@ const SuperAdminUsersPage = () => {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    toggleStatus(editingUser)
-                  }
-                  className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                    editingUser.status === 'Active'
-                      ? 'border-[#286A8F] bg-white text-[#286A8F] hover:bg-[#E8F2F6] dark:border-[#5BAFC1] dark:bg-[#102B3A] dark:text-[#75C6D4] dark:hover:bg-[#17384A]'
-                      : 'border-[#2D94A8] bg-[#2D94A8] text-white hover:border-[#286A8F] hover:bg-[#286A8F] dark:border-[#3D9FB3] dark:bg-[#3D9FB3] dark:hover:bg-[#286A8F]'
-                  }`}
+                  onClick={() => toggleStatus(editingUser)}
+                  className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition-all ${editingUser.status === 'Active'
+                      ? activeToggleClass
+                      : inactiveToggleClass
+                    }`}
                 >
                   {editingUser.status === 'Active' ? (
                     <PowerOff className="h-3.5 w-3.5" />
                   ) : (
                     <CheckCircle2 className="h-3.5 w-3.5" />
                   )}
-
-                  {editingUser.status === 'Active'
-                    ? 'Deactivate'
-                    : 'Activate'}
+                  {editingUser.status === 'Active' ? 'Deactivate' : 'Activate'}
                 </button>
               </div>
 
               <div className="rounded-xl border border-[#C8D9E1] bg-[#E8F2F6] px-3 py-2.5 font-mono text-[11px] text-[#708D9B] dark:border-[#31576B] dark:bg-[#0D2533] dark:text-[#9AB6C4]">
                 Last login:{' '}
                 <span className="font-semibold text-[#204A65] dark:text-[#CDE6ED]">
-                  {editingUser.lastLogin
-                    ? format(
-                        new Date(editingUser.lastLogin),
-                        'dd MMM yyyy, hh:mm a'
-                      )
-                    : 'Never logged in'}
+                  {formatDate(editingUser.lastLogin, 'dd MMM yyyy, hh:mm a') ||
+                    'Never logged in'}
                 </span>
               </div>
             </div>
           )}
 
           {/* Add/Edit Form */}
-          <form
-            onSubmit={handleFormSubmit}
-            className="space-y-4 text-xs"
-          >
+          <form onSubmit={handleFormSubmit} className="space-y-4 text-xs">
             <div>
-              <label
-                htmlFor="member-name"
-                className={labelClass}
-              >
+              <label htmlFor="member-name" className={labelClass}>
                 Full Name
               </label>
-
               <input
                 id="member-name"
                 type="text"
                 required
                 value={formData.name}
-                onChange={(event) =>
-                  updateForm('name', event.target.value)
-                }
+                onChange={(event) => updateForm('name', event.target.value)}
                 placeholder="e.g. Priya Kapoor"
                 className={inputClass}
               />
             </div>
 
             <div>
-              <label
-                htmlFor="member-email"
-                className={labelClass}
-              >
+              <label htmlFor="member-email" className={labelClass}>
                 Email Address
               </label>
-
               <input
                 id="member-email"
                 type="email"
                 required
                 value={formData.email}
-                onChange={(event) =>
-                  updateForm(
-                    'email',
-                    event.target.value
-                  )
-                }
+                onChange={(event) => updateForm('email', event.target.value)}
                 placeholder="priya@workzen.io"
                 className={inputClass}
               />
@@ -1091,90 +846,55 @@ const SuperAdminUsersPage = () => {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label
-                  htmlFor="member-role"
-                  className={labelClass}
-                >
+                <label htmlFor="member-role" className={labelClass}>
                   Role
                 </label>
-
                 <div className="relative">
                   <select
                     id="member-role"
                     value={formData.role}
-                    onChange={(event) =>
-                      updateForm(
-                        'role',
-                        event.target.value
-                      )
-                    }
+                    onChange={(event) => updateForm('role', event.target.value)}
                     className={`${inputClass} appearance-none pr-9`}
                   >
                     {ROLES.map((role) => (
                       <option key={role} value={role}>
-                        {ROLE_LABELS[role]}
+                        {role}
                       </option>
                     ))}
                   </select>
-
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#286A8F] dark:text-[#75C6D4]" />
                 </div>
               </div>
 
               <div>
-                <label
-                  htmlFor="member-status"
-                  className={labelClass}
-                >
+                <label htmlFor="member-status" className={labelClass}>
                   Status
                 </label>
-
                 <div className="relative">
                   <select
                     id="member-status"
                     value={formData.status}
-                    onChange={(event) =>
-                      updateForm(
-                        'status',
-                        event.target.value
-                      )
-                    }
+                    onChange={(event) => updateForm('status', event.target.value)}
                     className={`${inputClass} appearance-none pr-9`}
                   >
-                    <option value="Active">
-                      Active
-                    </option>
-                    <option value="Holiday">
-                      Holiday
-                    </option>
-                    <option value="Inactive">
-                      Inactive
-                    </option>
+                    <option value="Active">Active</option>
+                    <option value="Holiday">Holiday</option>
+                    <option value="Inactive">Inactive</option>
                   </select>
-
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#286A8F] dark:text-[#75C6D4]" />
                 </div>
               </div>
             </div>
 
             <div>
-              <label
-                htmlFor="member-department"
-                className={labelClass}
-              >
+              <label htmlFor="member-department" className={labelClass}>
                 Department
               </label>
-
               <input
                 id="member-department"
                 type="text"
                 value={formData.department}
-                onChange={(event) =>
-                  updateForm(
-                    'department',
-                    event.target.value
-                  )
-                }
+                onChange={(event) => updateForm('department', event.target.value)}
                 placeholder="e.g. Engineering"
                 className={inputClass}
               />
@@ -1191,18 +911,13 @@ const SuperAdminUsersPage = () => {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-
-                {editingUser
-                  ? 'Save Changes'
-                  : 'Create Member'}
+                {editingUser ? 'Save Changes' : 'Create Member'}
               </button>
 
               {editingUser && (
                 <button
                   type="button"
-                  onClick={() =>
-                    deleteUser(editingUser)
-                  }
+                  onClick={() => deleteUser(editingUser)}
                   title="Delete member"
                   aria-label={`Delete ${editingUser.name}`}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#C8D9E1] bg-[#E8F2F6] text-[#286A8F] transition-all hover:border-[#19364D] hover:bg-[#19364D] hover:text-white dark:border-[#31576B] dark:bg-[#17384A] dark:text-[#75C6D4] dark:hover:border-[#5BAFC1] dark:hover:bg-[#20485B] dark:hover:text-white"
@@ -1218,4 +933,4 @@ const SuperAdminUsersPage = () => {
   );
 };
 
-export default SuperAdminUsersPage;
+export default EmployeeDirectoryPage_su;

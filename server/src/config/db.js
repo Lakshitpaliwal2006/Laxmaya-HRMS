@@ -4,7 +4,7 @@ let mongoMemoryServer = null;
 
 const connectDB = async () => {
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/dayflow_hrms';
+    const mongoUrl = process.env.MONGODB_URL || 'mongodb://127.0.0.1:27017/laxmaya_hrms';
     
     // Set connection options
     const options = {
@@ -12,8 +12,8 @@ const connectDB = async () => {
     };
 
     try {
-      console.log(`📡 Attempting MongoDB connection to ${mongoUri}...`);
-      await mongoose.connect(mongoUri, options);
+      console.log(`📡 Attempting MongoDB connection to ${mongoUrl}...`);
+      await mongoose.connect(mongoUrl, options);
       console.log(`✅ MongoDB Connected successfully: ${mongoose.connection.host}`);
     } catch (primaryErr) {
       console.warn(`⚠️ Could not connect to primary MongoDB (${primaryErr.message}).`);
@@ -23,8 +23,8 @@ const connectDB = async () => {
       mongoMemoryServer = await MongoMemoryServer.create();
       const memUri = mongoMemoryServer.getUri();
       
-      await mongoose.connect(memUri);
-      console.log(`✅ Embedded MongoDB Memory Server Connected: ${memUri}`);
+      await mongoose.connect(memUrl);
+      console.log(`✅ Embedded MongoDB Memory Server Connected: ${memUrl}`);
     }
 
     // Auto-seed if database is empty

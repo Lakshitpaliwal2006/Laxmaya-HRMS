@@ -109,31 +109,31 @@ const LoginPage = () => {
 
   // Role Switcher
   const handleRoleClick = (user) => {
-  switch (user.role) {
-    case "Employee":
-      navigate("/employee/");
-      break;
+    switch (user.role) {
+      case "Employee":
+        navigate("/employee/");
+        break;
 
-    case "HR Admin":
-      navigate("/admin/");
-      break;
+      case "HR Admin":
+        navigate("/admin/");
+        break;
 
-    case "Super Admin":
-      navigate("/superadmin");
-      break;
+      case "Super Admin":
+        navigate("/superadmin");
+        break;
 
-    case "Manager":
-      navigate("/manager");
-      break;
+      case "Manager":
+        navigate("/manager");
+        break;
 
-    case "Finance Admin":
-      navigate("/financeadmin");
-      break;
+      case "Finance Admin":
+        navigate("/financeadmin");
+        break;
 
-    default:
-      console.log("Unknown role");
-  }
-};
+      default:
+        console.log("Unknown role");
+    }
+  };
 
   // Check URL query parameters for token/email
   useEffect(() => {
@@ -502,69 +502,6 @@ const LoginPage = () => {
                         <div className="space-y-9">
                           {/* Step 1 — role */}
                           <div className="relative pl-8">
-                            <span className="absolute left-0 top-2 w-2.5 h-2.5 rounded-full border-2 bg-slate-950 border-slate-950" />
-                            <label className="block text-sm text-slate-500 mb-2">
-                              Organization role
-                            </label>
-                            <div className="flex gap-2">
-                              {[
-                                {
-                                  value: "super_admin",
-                                  label: "Super Admin",
-                                  description: "Full system access and control",
-                                  icon: Crown,
-                                },
-                                {
-                                  value: "hr_admin",
-                                  label: "HR Admin",
-                                  description: "Manage employee records and access",
-                                  icon: Shield,
-                                },
-                                {
-                                  value: "finance_admin",
-                                  label: "Finance Admin",
-                                  description: "Manage payroll and financial data",
-                                  icon: DollarSign,
-                                },
-                                {
-                                  value: "manager",
-                                  label: "Manager",
-                                  description: "Oversee team and approve requests",
-                                  icon: Briefcase,
-                                },
-                                {
-                                  value: "employee",
-                                  label: "Employee",
-                                  description: "Standard team member access",
-                                  icon: User,
-                                },
-                              ].map(({ value, label, description, icon: Icon }) => (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  onClick={() => setSignupData({ ...signupData, role: value })}
-                                  className={`flex-1 flex flex-col items-center text-center gap-2 px-3 py-3 rounded-xl border transition-colors ${signupData.role === value
-                                      ? "border-slate-900 bg-slate-50"
-                                      : "border-slate-200 hover:border-slate-300"
-                                    }`}
-                                >
-                                  <Icon className="w-4 h-4 text-slate-700 shrink-0" />
-                                  <div>
-                                    <p className="text-xs font-medium text-slate-900 whitespace-nowrap">{label}</p>
-                                  </div>
-                                  <span
-                                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${signupData.role === value ? "border-slate-900" : "border-slate-300"
-                                      }`}
-                                  >
-                                    {signupData.role === value && (
-                                      <span className="w-2 h-2 rounded-full bg-slate-900" />
-                                    )}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="relative pl-8">
                             <span
                               className={`absolute left-0 top-2 w-2.5 h-2.5 rounded-full border-2 transition-colors ${signupData.employeeId
                                 ? "bg-slate-950 border-slate-950"
@@ -709,7 +646,7 @@ const LoginPage = () => {
               )}
 
               {/* TAB 3: VERIFY EMAIL */}
-              {/* {authMode === 'verify' && (
+              {authMode === 'verify' && (
                 <>
                   <div className="mb-5">
                     <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -782,7 +719,7 @@ const LoginPage = () => {
                     </button>
                   </form>
                 </>
-              )} */}
+              )}
             </div>
           </div>
         </div>

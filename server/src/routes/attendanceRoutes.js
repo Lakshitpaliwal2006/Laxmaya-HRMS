@@ -10,11 +10,6 @@ const {
   getManagerAttendance,
   updateAttendanceRecord,
 } = require("../controllers/attendanceController");
-const { protect, authorize } = require("../middleware/auth");
-
-// All attendance routes require JWT authentication
-router.use(protect);
-
 // Employee actions & personal logs
 router.post("/check-in", checkIn);
 router.post("/check-out", checkOut);
@@ -24,8 +19,8 @@ router.get("/my-weekly", getMyWeeklyView);
 router.get("/weekly-view", getMyWeeklyView);
 
 // Admin oversight & management
-router.get("/all", authorize("admin", "superadmin"), getAllAttendance);
-router.get("/manager", authorize("manager"), getManagerAttendance);
-router.put("/:id", authorize("admin", "superadmin"), updateAttendanceRecord);
+router.get("/all",getAllAttendance);
+router.get("/manager", getManagerAttendance);
+router.put("/:id",updateAttendanceRecord);
 
 module.exports = router;

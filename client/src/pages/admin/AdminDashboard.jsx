@@ -112,7 +112,7 @@ const AdminDashboard = () => {
   ];
 
   if (loading) return <div className="p-10 text-center text-[#173752]">Loading...</div>;
-
+// console.log('Hello This is admin Dashboard')
   return (
     // Main background: Pale, pale blue/white from reference image
     <div className="space-y-6 sm:space-y-8 p-6 bg-[#F2F9FF] min-h-screen">

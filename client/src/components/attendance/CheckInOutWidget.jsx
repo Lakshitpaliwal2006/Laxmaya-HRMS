@@ -1,654 +1,778 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Clock,
+  Clock3,
   LogIn,
   LogOut,
-  Building,
-  Laptop,
-  CheckCircle2,
+  Building2,
+  Wifi,
+  RefreshCw,
   Timer,
+  CalendarDays,
+  Activity,
+  CheckCircle2,
+  CircleDot,
+  BriefcaseBusiness,
+  ArrowUpRight,
 } from "lucide-react";
+
 import api from "../../api/client";
 import { useToast } from "../../context/ToastContext";
-import { format } from "date-fns";
 
-const CheckInOutWidget = ({ onAttendanceChange }) => {
-  const [statusData, setStatusData] = useState({
-    loading: true,
-    isCheckedIn: false,
-    isCheckedOut: false,
-    attendance: null,
-  });
+const CheckInOutManager = () => {
+  const { showToast } = useToast();
+
+  const [attendance, setAttendance] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [workMode, setWorkMode] = useState("Office");
   const [remarks, setRemarks] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState("00:00:00");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const toast = useToast();
-
-  const fetchTodayStatus = async () => {
-    try {
-      const res = await api.get("/attendance/today");
-
-      if (res.data.success) {
-        setStatusData({
-          loading: false,
-          isCheckedIn: res.data.isCheckedIn,
-          isCheckedOut: res.data.isCheckedOut,
-          attendance: res.data.attendance,
-        });
-
-        if (res.data.attendance?.workMode) {
-          setWorkMode(res.data.attendance.workMode);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching today attendance:", error);
-
-      setStatusData((prev) => ({
-        ...prev,
-        loading: false,
-      }));
-    }
-  };
-
-  useEffect(() => {
-    fetchTodayStatus();
+  // =====================================================
+  // TODAY DATE
+  // =====================================================
+  const todayLabel = useMemo(() => {
+    return new Intl.DateTimeFormat("en-IN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date());
   }, []);
 
+  // =====================================================
+  // GET TODAY'S ATTENDANCE
+  // =====================================================
+  const fetchTodayAttendance = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const response = await api.get("/attendance/today");
+      const data = response?.data;
+
+      const currentAttendance = data?.attendance || null;
+
+      setAttendance(currentAttendance);
+
+      // Keep frontend work mode synced with backend
+      if (currentAttendance?.workMode) {
+        setWorkMode(currentAttendance.workMode);
+      }
+    } catch (error) {
+      console.error("Manager attendance fetch error:", error);
+
+      showToast?.(
+        error?.response?.data?.message ||
+          "Unable to load today's attendance",
+        "error"
+      );
+
+      setAttendance(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
   useEffect(() => {
-    let interval = null;
+    fetchTodayAttendance();
+  }, [fetchTodayAttendance]);
 
-    if (
-      statusData.isCheckedIn &&
-      !statusData.isCheckedOut &&
-      statusData.attendance?.checkIn
-    ) {
-      const updateTimer = () => {
-        const diffMs =
-          new Date() - new Date(statusData.attendance.checkIn);
+  // =====================================================
+  // ATTENDANCE STATES
+  // =====================================================
+  const isCheckedIn =
+    Boolean(attendance?.checkIn) && !attendance?.checkOut;
 
-        const totalSeconds = Math.max(
-          0,
-          Math.floor(diffMs / 1000)
-        );
+  const isCompleted =
+    Boolean(attendance?.checkIn) && Boolean(attendance?.checkOut);
 
-        const hrs = String(
-          Math.floor(totalSeconds / 3600)
-        ).padStart(2, "0");
-
-        const mins = String(
-          Math.floor((totalSeconds % 3600) / 60)
-        ).padStart(2, "0");
-
-        const secs = String(totalSeconds % 60).padStart(2, "0");
-
-        setElapsedTime(`${hrs}:${mins}:${secs}`);
-      };
-
-      updateTimer();
-      interval = setInterval(updateTimer, 1000);
+  // =====================================================
+  // LIVE TIMER
+  // =====================================================
+  useEffect(() => {
+    if (!attendance?.checkIn || attendance?.checkOut) {
+      setElapsedSeconds(0);
+      return;
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
+    const updateTimer = () => {
+      const start = new Date(attendance.checkIn).getTime();
+      const now = Date.now();
+
+      const diff = Math.max(
+        0,
+        Math.floor((now - start) / 1000)
+      );
+
+      setElapsedSeconds(diff);
     };
-  }, [statusData]);
 
+    updateTimer();
+
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [attendance]);
+
+  // =====================================================
+  // FORMAT LIVE DURATION
+  // =====================================================
+  const formatLiveDuration = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+
+    const minutes = Math.floor(
+      (seconds % 3600) / 60
+    );
+
+    const secs = seconds % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(
+      minutes
+    ).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
+  // =====================================================
+  // FORMAT TIME
+  // =====================================================
+  const formatTime = (value) => {
+    if (!value) return "--:--";
+
+    try {
+      return new Date(value).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "--:--";
+    }
+  };
+
+  // =====================================================
+  // FORMAT TOTAL HOURS
+  // =====================================================
+  const formatTotalHours = (value) => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return "00h 00m";
+    }
+
+    const numericValue = Number(value);
+
+    if (Number.isNaN(numericValue)) {
+      return `${value}`;
+    }
+
+    const hours = Math.floor(numericValue);
+    const minutes = Math.round(
+      (numericValue - hours) * 60
+    );
+
+    return `${String(hours).padStart(2, "0")}h ${String(
+      minutes
+    ).padStart(2, "0")}m`;
+  };
+
+  // =====================================================
+  // SESSION PROGRESS
+  // Frontend-only visual indicator
+  // =====================================================
+  const sessionProgress = useMemo(() => {
+    if (!isCheckedIn) {
+      if (isCompleted && attendance?.totalHours) {
+        return Math.min(
+          (Number(attendance.totalHours) / 8) * 100,
+          100
+        );
+      }
+
+      return 0;
+    }
+
+    // Visual 8-hour workday reference
+    return Math.min(
+      (elapsedSeconds / (8 * 60 * 60)) * 100,
+      100
+    );
+  }, [
+    isCheckedIn,
+    isCompleted,
+    attendance,
+    elapsedSeconds,
+  ]);
+
+  // =====================================================
+  // CHECK IN
+  // =====================================================
   const handleCheckIn = async () => {
-    setSubmitting(true);
+    if (actionLoading) return;
 
     try {
-      const res = await api.post("/attendance/check-in", {
-        workMode,
-        remarks,
-      });
+      setActionLoading(true);
 
-      if (res.data.success) {
-        toast.success(res.data.message);
-        setRemarks("");
-        await fetchTodayStatus();
-        onAttendanceChange?.();
+      const response = await api.post(
+        "/attendance/check-in",
+        {
+          workMode,
+          remarks: remarks.trim(),
+        }
+      );
+
+      const data = response?.data;
+
+      if (data?.attendance) {
+        setAttendance(data.attendance);
+
+        if (data.attendance.workMode) {
+          setWorkMode(data.attendance.workMode);
+        }
       }
+
+      setRemarks("");
+
+      showToast?.(
+        data?.message || "Manager check-in successful",
+        "success"
+      );
+
+      await fetchTodayAttendance();
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Check-in failed"
+      console.error("Manager check-in error:", error);
+
+      showToast?.(
+        error?.response?.data?.message ||
+          "Unable to check in",
+        "error"
       );
     } finally {
-      setSubmitting(false);
+      setActionLoading(false);
     }
   };
 
+  // =====================================================
+  // CHECK OUT
+  // =====================================================
   const handleCheckOut = async () => {
-    setSubmitting(true);
+    if (actionLoading) return;
 
     try {
-      const res = await api.post("/attendance/check-out", {
-        remarks,
-      });
+      setActionLoading(true);
 
-      if (res.data.success) {
-        toast.success(res.data.message);
-        setRemarks("");
-        await fetchTodayStatus();
-        onAttendanceChange?.();
+      const response = await api.post(
+        "/attendance/check-out",
+        {
+          remarks: remarks.trim(),
+        }
+      );
+
+      const data = response?.data;
+
+      if (data?.attendance) {
+        setAttendance(data.attendance);
       }
+
+      setRemarks("");
+
+      showToast?.(
+        data?.message || "Manager check-out successful",
+        "success"
+      );
+
+      await fetchTodayAttendance();
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Check-out failed"
+      console.error("Manager check-out error:", error);
+
+      showToast?.(
+        error?.response?.data?.message ||
+          "Unable to check out",
+        "error"
       );
     } finally {
-      setSubmitting(false);
+      setActionLoading(false);
     }
   };
 
-  if (statusData.loading) {
-    return (
-      <div className="p-4 bg-white border border-[#C3D8E6] flex flex-col items-center justify-center gap-2">
-        <div className="relative w-6 h-6">
-          <div className="absolute inset-0 border-2 border-slate-100 rounded-full" />
-          <div className="absolute inset-0 border-2 border-[#3881A6] border-t-transparent rounded-full animate-spin" />
-        </div>
+  // =====================================================
+  // STATUS TEXT
+  // =====================================================
+  const statusInfo = useMemo(() => {
+    if (isCompleted) {
+      return {
+        label: "Day Completed",
+        small: "Attendance submitted",
+        className:
+          "bg-emerald-50 text-emerald-700 border-emerald-100",
+        dot: "bg-emerald-500",
+      };
+    }
 
-        <span className="text-[10px] font-semibold text-slate-500">
-          Syncing today's punch status...
-        </span>
-      </div>
+    if (isCheckedIn) {
+      return {
+        label: "Currently Working",
+        small: "Live attendance session",
+        className:
+          "bg-blue-50 text-blue-700 border-blue-100",
+        dot: "bg-blue-500",
+      };
+    }
+
+    return {
+      label: "Not Checked In",
+      small: "Start today's session",
+      className:
+        "bg-slate-50 text-slate-600 border-slate-200",
+      dot: "bg-slate-400",
+    };
+  }, [isCheckedIn, isCompleted]);
+
+  // =====================================================
+  // LOADING VIEW
+  // =====================================================
+  if (loading && !attendance) {
+    return (
+      <section className="px-3 pt-3 sm:px-4 sm:pt-4 lg:px-5">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="animate-pulse p-4">
+            <div className="h-5 w-40 rounded bg-slate-200" />
+            <div className="mt-2 h-3 w-64 rounded bg-slate-100" />
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="h-64 rounded-2xl bg-slate-100" />
+              <div className="h-64 rounded-2xl bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      </section>
     );
   }
 
-  const { isCheckedIn, isCheckedOut, attendance } = statusData;
-
+  // =====================================================
+  // UI
+  // =====================================================
   return (
-    <div
-      className="
-        p-3
-        sm:p-4
-        bg-white
-        border
-        border-[#C3D8E6]
-        shadow-sm
-        font-sans
-      "
-    >
-      {/* HEADER */}
-      <div
-        className="
-          flex
-          flex-col
-          sm:flex-row
-          sm:items-center
-          justify-between
-          gap-2.5
-          border-b
-          border-[#EAF3F9]
-          pb-3
-          mb-3
-        "
-      >
-        <div className="flex items-center gap-2.5">
-          <div
-            className="
-              w-8
-              h-8
-              rounded-lg
-              bg-[#EAF3F9]
-              text-[#204A65]
-              border
-              border-[#C3D8E6]
-              flex
-              items-center
-              justify-center
-              shrink-0
-            "
-          >
-            <Clock className="w-4 h-4" />
-          </div>
+    <section className="px-3 pt-3 sm:px-4 sm:pt-4 lg:px-5">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-          <div className="min-w-0">
-            <h3
-              className="
-                text-sm
-                sm:text-[15px]
-                font-extrabold
-                text-[#204A65]
-                tracking-tight
-              "
-            >
-              Today's Attendance Punch
-            </h3>
+        {/* =================================================
+            TOP HEADER
+        ================================================== */}
+        <div className="relative overflow-hidden border-b border-slate-100 px-4 py-4 sm:px-5">
+          <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-slate-100/70 blur-2xl" />
+          <div className="absolute bottom-0 right-28 h-16 w-16 rounded-full bg-blue-100/40 blur-2xl" />
 
-            <p className="text-[10px] font-medium text-[#3881A6] mt-0.5">
-              {format(new Date(), "EEEE, MMMM dd, yyyy")}
-            </p>
-          </div>
-        </div>
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
+                <BriefcaseBusiness size={17} />
+              </div>
 
-        {/* STATUS */}
-        <div className="shrink-0">
-          {!isCheckedIn ? (
-            <span
-              className="
-                inline-flex
-                items-center
-                gap-1.5
-                px-2.5
-                py-1
-                rounded-full
-                text-[9px]
-                font-bold
-                bg-[#EAF3F9]
-                text-[#204A65]
-                border
-                border-[#C3D8E6]
-              "
-            >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3881A6] opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#3881A6]" />
-              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate text-sm font-bold text-slate-900 sm:text-[15px]">
+                    Manager Attendance
+                  </h1>
 
-              Not Checked In Yet
-            </span>
-          ) : !isCheckedOut ? (
-            <span
-              className="
-                inline-flex
-                items-center
-                gap-1.5
-                px-2.5
-                py-1
-                rounded-full
-                text-[9px]
-                font-bold
-                bg-[#3881A6]
-                text-white
-              "
-            >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-              </span>
+                  <span className="hidden rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-500 sm:inline-flex">
+                    Manager
+                  </span>
+                </div>
 
-              Working ({workMode})
-            </span>
-          ) : (
-            <span
-              className="
-                inline-flex
-                items-center
-                gap-1
-                px-2.5
-                py-1
-                rounded-full
-                text-[9px]
-                font-bold
-                bg-[#204A65]
-                text-white
-              "
-            >
-              <CheckCircle2 className="w-3 h-3" />
-              Punch Completed
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* MAIN CONTENT */}
-      <div
-        className="
-          grid
-          grid-cols-1
-          md:grid-cols-3
-          gap-2.5
-          lg:gap-3
-          items-stretch
-        "
-      >
-        {/* TIME CARD */}
-        <div
-          className="
-            space-y-2
-            p-3
-            bg-[#EAF3F9]
-            border
-            border-[#C3D8E6]
-            flex
-            flex-col
-            justify-center
-          "
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[8px] font-bold text-[#3881A6] uppercase tracking-wide">
-              Punch In Time
-            </span>
-
-            <span
-              className="
-                font-mono
-                font-black
-                text-[#204A65]
-                text-[10px]
-                bg-white
-                px-1.5
-                py-0.5
-                border
-                border-[#C3D8E6]
-                whitespace-nowrap
-              "
-            >
-              {attendance?.checkIn
-                ? format(
-                    new Date(attendance.checkIn),
-                    "hh:mm:ss a"
-                  )
-                : "--:--:--"}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[8px] font-bold text-[#3881A6] uppercase tracking-wide">
-              Punch Out Time
-            </span>
-
-            <span
-              className="
-                font-mono
-                font-black
-                text-[#204A65]
-                text-[10px]
-                bg-white
-                px-1.5
-                py-0.5
-                border
-                border-[#C3D8E6]
-                whitespace-nowrap
-              "
-            >
-              {attendance?.checkOut
-                ? format(
-                    new Date(attendance.checkOut),
-                    "hh:mm:ss a"
-                  )
-                : "--:--:--"}
-            </span>
-          </div>
-
-          <div className="w-full h-px bg-[#C3D8E6]" />
-
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[8px] font-bold text-[#3881A6] uppercase tracking-wide">
-              Total Hours
-            </span>
-
-            <span className="font-black text-[10px] text-[#204A65]">
-              {attendance?.totalHours
-                ? `${attendance.totalHours} hrs`
-                : isCheckedIn
-                ? "In Progress"
-                : "0.00 hrs"}
-            </span>
-          </div>
-        </div>
-
-        {/* TIMER */}
-        <div
-          className="
-            p-3
-            sm:p-4
-            bg-[#204A65]
-            border
-            border-[#204A65]
-            text-center
-            flex
-            flex-col
-            items-center
-            justify-center
-          "
-        >
-          <span
-            className="
-              text-[7px]
-              uppercase
-              tracking-widest
-              text-white
-              font-bold
-              mb-1.5
-              flex
-              items-center
-              gap-1
-              bg-[#3881A6]
-              px-2
-              py-0.5
-              rounded-full
-            "
-          >
-            <Timer className="w-2.5 h-2.5" />
-
-            {isCheckedIn && !isCheckedOut
-              ? "Active Working Time"
-              : "Today Working Duration"}
-          </span>
-
-          <div
-            className="
-              text-2xl
-              sm:text-3xl
-              lg:text-[34px]
-              font-mono
-              font-black
-              tracking-wider
-              text-white
-              my-1
-            "
-          >
-            {isCheckedIn && !isCheckedOut
-              ? elapsedTime
-              : attendance?.totalHours
-              ? `${attendance.totalHours}h`
-              : "00:00:00"}
-          </div>
-
-          {/* WORK MODE */}
-          {!isCheckedIn && (
-            <div
-              className="
-                flex
-                items-center
-                gap-0.5
-                mt-2
-                bg-[#143245]
-                p-0.5
-                rounded-md
-                border
-                border-[#143245]
-                w-full
-                max-w-[150px]
-              "
-            >
-              <button
-                type="button"
-                onClick={() => setWorkMode("Office")}
-                className={`
-                  flex-1
-                  py-1
-                  rounded
-                  text-[8px]
-                  font-bold
-                  flex
-                  items-center
-                  justify-center
-                  gap-1
-                  ${
-                    workMode === "Office"
-                      ? "bg-white text-[#204A65]"
-                      : "text-[#C3D8E6] hover:text-white hover:bg-[#3881A6]"
-                  }
-                `}
-              >
-                <Building className="w-2.5 h-2.5" />
-                Office
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setWorkMode("Remote")}
-                className={`
-                  flex-1
-                  py-1
-                  rounded
-                  text-[8px]
-                  font-bold
-                  flex
-                  items-center
-                  justify-center
-                  gap-1
-                  ${
-                    workMode === "Remote"
-                      ? "bg-white text-[#204A65]"
-                      : "text-[#C3D8E6] hover:text-white hover:bg-[#3881A6]"
-                  }
-                `}
-              >
-                <Laptop className="w-2.5 h-2.5" />
-                Remote
-              </button>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <CalendarDays size={11} />
+                  {todayLabel}
+                </div>
+              </div>
             </div>
-          )}
+
+            <button
+              type="button"
+              onClick={fetchTodayAttendance}
+              disabled={loading || actionLoading}
+              title="Refresh attendance"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw
+                size={14}
+                className={loading ? "animate-spin" : ""}
+              />
+            </button>
+          </div>
         </div>
 
-        {/* ACTION */}
-        <div className="flex flex-col justify-center gap-2">
-          {!isCheckedIn ? (
-            <button
-              onClick={handleCheckIn}
-              disabled={submitting}
-              className="
-                w-full
-                py-2.5
-                px-3
-                bg-[#3881A6]
-                hover:bg-[#2a6482]
-                text-white
-                font-extrabold
-                text-[10px]
-                flex
-                items-center
-                justify-center
-                gap-1.5
-                disabled:opacity-50
-              "
-            >
-              {submitting ? (
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Check In Now</span>
-                </>
-              )}
-            </button>
-          ) : !isCheckedOut ? (
-            <button
-              onClick={handleCheckOut}
-              disabled={submitting}
-              className="
-                w-full
-                py-2.5
-                px-3
-                bg-[#204A65]
-                hover:bg-[#143245]
-                text-white
-                font-extrabold
-                text-[10px]
-                flex
-                items-center
-                justify-center
-                gap-1.5
-                disabled:opacity-50
-              "
-            >
-              {submitting ? (
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Check Out (End Day)</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <div
-              className="
-                p-3
-                bg-[#EAF3F9]
-                border
-                border-[#C3D8E6]
-                text-center
-                flex
-                flex-col
-                justify-center
-                min-h-[65px]
-              "
-            >
-              <span
-                className="
-                  text-[10px]
-                  font-extrabold
-                  text-[#204A65]
-                  flex
-                  items-center
-                  justify-center
-                  gap-1
-                "
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Shift Completed
-              </span>
+        {/* =================================================
+            MAIN AREA
+        ================================================== */}
+        <div className="grid gap-3 p-3 sm:p-4 lg:grid-cols-[1.18fr_0.82fr]">
 
-              <p
-                className="
-                  text-[8px]
-                  font-bold
-                  text-[#3881A6]
-                  mt-1
-                  uppercase
-                  tracking-wide
-                "
-              >
-                Status: {attendance?.status}
+          {/* =================================================
+              LEFT: SESSION OVERVIEW
+          ================================================== */}
+          <div className="rounded-2xl bg-slate-950 p-4 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full ${statusInfo.dot}`}
+                  />
+
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Work Session
+                  </span>
+                </div>
+
+                <h2 className="mt-1.5 text-base font-bold">
+                  {statusInfo.label}
+                </h2>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {statusInfo.small}
+                </p>
+              </div>
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
+                <Activity size={15} className="text-slate-200" />
+              </div>
+            </div>
+
+            {/* LIVE CLOCK */}
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.06] p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">
+                  {isCheckedIn
+                    ? "Live Duration"
+                    : "Today's Duration"}
+                </span>
+
+                {isCheckedIn && (
+                  <span className="flex items-center gap-1 text-[9px] font-semibold text-emerald-400">
+                    <CircleDot size={9} />
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-1.5 flex items-end justify-between">
+                <div className="font-mono text-2xl font-bold tracking-tight sm:text-3xl">
+                  {isCheckedIn
+                    ? formatLiveDuration(elapsedSeconds)
+                    : isCompleted
+                    ? formatTotalHours(attendance?.totalHours)
+                    : "00:00:00"}
+                </div>
+
+                <Timer
+                  size={18}
+                  className="mb-1 text-slate-500"
+                />
+              </div>
+
+              {/* SESSION PROGRESS */}
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-[8px] text-slate-500">
+                  <span>Session progress</span>
+                  <span>
+                    {Math.round(sessionProgress)}%
+                  </span>
+                </div>
+
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+                    style={{
+                      width: `${sessionProgress}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* TIME CARDS */}
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+                <p className="text-[8px] uppercase tracking-wider text-slate-500">
+                  Check In
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-slate-100">
+                  {formatTime(attendance?.checkIn)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+                <p className="text-[8px] uppercase tracking-wider text-slate-500">
+                  Check Out
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-slate-100">
+                  {formatTime(attendance?.checkOut)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
+                <p className="text-[8px] uppercase tracking-wider text-slate-500">
+                  Mode
+                </p>
+
+                <p className="mt-1 truncate text-sm font-bold text-slate-100">
+                  {attendance?.workMode ||
+                    workMode ||
+                    "Office"}
+                </p>
+              </div>
+            </div>
+
+            {/* SESSION NOTE */}
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+              <CheckCircle2
+                size={14}
+                className={
+                  isCompleted
+                    ? "text-emerald-400"
+                    : "text-slate-500"
+                }
+              />
+
+              <p className="text-[9px] leading-4 text-slate-400">
+                {isCompleted
+                  ? "Today's attendance has been completed successfully."
+                  : isCheckedIn
+                  ? "Your attendance session is active. Check out when your workday is complete."
+                  : "Choose your work mode and start your attendance session."}
               </p>
             </div>
-          )}
+          </div>
 
-          {/* REMARKS */}
-          {!isCheckedOut && (
-            <input
-              type="text"
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Add optional notes/remarks..."
-              className="
-                w-full
-                px-2.5
-                py-2
-                bg-[#EAF3F9]
-                border
-                border-[#C3D8E6]
-                text-[10px]
-                font-bold
-                text-[#204A65]
-                placeholder-[#3881A6]
-                focus:outline-none
-                focus:border-[#204A65]
-              "
-            />
-          )}
+          {/* =================================================
+              RIGHT: MANAGER ACTION PANEL
+          ================================================== */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+
+            {/* PANEL HEADER */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Attendance Control
+                </p>
+
+                <h3 className="mt-1 text-sm font-bold text-slate-900">
+                  Manage Today's Session
+                </h3>
+              </div>
+
+              <div
+                className={`rounded-full border px-2.5 py-1 text-[8px] font-bold ${statusInfo.className}`}
+              >
+                {isCompleted
+                  ? "COMPLETED"
+                  : isCheckedIn
+                  ? "ACTIVE"
+                  : "PENDING"}
+              </div>
+            </div>
+
+            {/* WORK MODE */}
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-slate-600">
+                  Work Mode
+                </p>
+
+                <span className="text-[8px] text-slate-400">
+                  Select before check-in
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWorkMode("Office")}
+                  disabled={
+                    isCheckedIn ||
+                    isCompleted ||
+                    actionLoading
+                  }
+                  className={`group flex h-10 items-center justify-center gap-2 rounded-xl border text-[11px] font-bold transition-all ${
+                    workMode === "Office"
+                      ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  } ${
+                    isCheckedIn || isCompleted
+                      ? "cursor-not-allowed opacity-70"
+                      : ""
+                  }`}
+                >
+                  <Building2
+                    size={14}
+                    className={
+                      workMode === "Office"
+                        ? "text-white"
+                        : "text-slate-400"
+                    }
+                  />
+
+                  Office
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWorkMode("Remote")}
+                  disabled={
+                    isCheckedIn ||
+                    isCompleted ||
+                    actionLoading
+                  }
+                  className={`group flex h-10 items-center justify-center gap-2 rounded-xl border text-[11px] font-bold transition-all ${
+                    workMode === "Remote"
+                      ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  } ${
+                    isCheckedIn || isCompleted
+                      ? "cursor-not-allowed opacity-70"
+                      : ""
+                  }`}
+                >
+                  <Wifi
+                    size={14}
+                    className={
+                      workMode === "Remote"
+                        ? "text-white"
+                        : "text-slate-400"
+                    }
+                  />
+
+                  Remote
+                </button>
+              </div>
+            </div>
+
+            {/* QUICK DETAILS */}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <Clock3 size={11} />
+                  <span className="text-[8px] font-semibold uppercase tracking-wider">
+                    Start
+                  </span>
+                </div>
+
+                <p className="mt-1 text-xs font-bold text-slate-800">
+                  {formatTime(attendance?.checkIn)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <ArrowUpRight size={11} />
+                  <span className="text-[8px] font-semibold uppercase tracking-wider">
+                    Total
+                  </span>
+                </div>
+
+                <p className="mt-1 text-xs font-bold text-slate-800">
+                  {isCheckedIn
+                    ? formatLiveDuration(elapsedSeconds)
+                    : formatTotalHours(
+                        attendance?.totalHours
+                      )}
+                </p>
+              </div>
+            </div>
+
+            {/* REMARKS */}
+            <div className="mt-3">
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-slate-600">
+                  Remarks
+                </p>
+
+                <span className="text-[8px] text-slate-400">
+                  Optional
+                </span>
+              </div>
+
+              <textarea
+                value={remarks}
+                onChange={(e) =>
+                  setRemarks(e.target.value)
+                }
+                disabled={isCompleted || actionLoading}
+                rows={3}
+                maxLength={250}
+                placeholder={
+                  isCompleted
+                    ? "Attendance completed"
+                    : "Add a short work-session remark..."
+                }
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] leading-4 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              />
+
+              {!isCompleted && (
+                <div className="mt-1 text-right text-[8px] text-slate-400">
+                  {remarks.length}/250
+                </div>
+              )}
+            </div>
+
+            {/* ACTION */}
+            <div className="mt-3">
+              {!isCompleted ? (
+                <button
+                  type="button"
+                  onClick={
+                    isCheckedIn
+                      ? handleCheckOut
+                      : handleCheckIn
+                  }
+                  disabled={
+                    loading || actionLoading
+                  }
+                  className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[11px] font-bold text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isCheckedIn
+                      ? "bg-red-600 hover:bg-red-700 active:scale-[0.99]"
+                      : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]"
+                  }`}
+                >
+                  {actionLoading ? (
+                    <>
+                      <RefreshCw
+                        size={14}
+                        className="animate-spin"
+                      />
+                      Processing...
+                    </>
+                  ) : isCheckedIn ? (
+                    <>
+                      <LogOut size={14} />
+                      Check Out
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={14} />
+                      Start Manager Session
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700">
+                  <CheckCircle2 size={14} />
+                  Today's attendance completed
+                </div>
+              )}
+            </div>
+
+            {/* FOOTER INFO */}
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-center text-[8px] text-slate-400">
+              <Clock3 size={10} />
+              Attendance is synced with the HRMS server
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
-export default CheckInOutWidget;
+export default CheckInOutManager;
